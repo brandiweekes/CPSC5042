@@ -22,13 +22,18 @@ void error(const char *msg)
 int main(int argc, char *argv[])
 {
   int sockfd, portno, n;
-  long guessNum;
-  long clientGuess;
-  int bytesSent;
   struct sockaddr_in serv_addr;
   struct hostent *server;
 
   char buffer[256];
+
+  int turnNum = 1;
+  long guessNum;
+  long clientGuess;
+  int bytesSent;
+
+  string enterName;
+  char sendName[50];
 
   //check if user entered port number
   if (argc < 3)
@@ -73,39 +78,58 @@ int main(int argc, char *argv[])
     error("ERROR connecting");
   }
 
-  //read from socket
-  bzero(buffer,256);
-  n = read(sockfd,buffer,255);
-  if (n < 0)
-       error("ERROR reading from socket");
-  //read message from socket
-  printf("%s\n",buffer);
+  /*FOLLOWING PROGRAM WILL RUN ONCE ABOVE SERVER CONNECTION SUCCESS*/
 
-  //user entering name
-  string msgStr;
-  char msg[50];
-  cin >> msgStr;
-  if (msgStr.length() >= 50) exit(-1); // too long
-  strcpy(msg, msgStr.c_str());
-  bytesSent = send(sockfd, (void *) msg, 50, 0);
-  if (bytesSent != 50) exit(-1);
+  printf("Welcome to Number Guessing Game!\n");
+  printf("Enter your name: ");
+  cin >> enterName;
+  if (enterName.length() >= 50)
+  {
+    exit(-1); // too long
+  }
+  strcpy(sendName, enterName.c_str());
+  bytesSent = send(sockfd, (void *) sendName, 50, 0);
+  if (bytesSent != 50)
+  {
+    exit(-1);
+  }
 
-  //read from socket
-  bzero(buffer,256);
-  n = read(sockfd,buffer,255);
-  if (n < 0)
-       error("ERROR reading from socket");
-  //read message from socket
-  printf("%s\n",buffer);
-
-  //send number to server
+  //user enters a guess between 0 & 9999, inclusive
+  printf("Turn: %d\n", turnNum);
+  printf("Enter a guess: ");
   cin >> guessNum;
+  while(guessNum < 0 || guessNum > 9999)
+  {
+    printf("Guess must be between 0 and 9999, inclusive\n");
+    printf("Enter a guess: ");
+    cin >> guessNum;
+  }
+  //send number to server
   clientGuess = htonl(guessNum);
   bytesSent = send(sockfd, (void *) &clientGuess, sizeof(long), 0);
   if (bytesSent != sizeof(long))
   {
    exit(-1);
   }
+
+  //read from socket
+  bzero(buffer,256);
+  n = read(sockfd,buffer,255);
+  if (n < 0)
+       error("ERROR reading from socket");
+  //read message from socket
+  printf("%s\n",buffer);
+
+
+  //read from socket
+  bzero(buffer,256);
+  n = read(sockfd,buffer,255);
+  if (n < 0)
+       error("ERROR reading from socket");
+  //read message from socket
+  printf("%s\n",buffer);
+
+
 
   /*EXPERIMENTAL CODE BELOW, PLUS END OF PROGRAM*/
   //enter name

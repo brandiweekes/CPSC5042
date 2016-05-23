@@ -55,14 +55,18 @@ int main(int argc, char *argv[])
   char buffer[256];
 
   srand(time(NULL));
-  const void* revealRand;
+  // const void* revealRand;
+  // string secretRand;
   int guessThisRandom;
 
-  string w = "Welcome to Number Guessing Game! Enter your name: ";
-  const void* welcome = convertStringtoCstrVoidPtr(w);
-
-  string t = "Turn: 2 \nEnter a guess:    ";
-  const void* turnMsg = convertStringtoCstrVoidPtr(t);
+  // string t = "Turn: 2 \nEnter a guess:    ";
+  // const void* turnMsg = convertStringtoCstrVoidPtr(t);
+  // //send game turn message to client
+  // n = write(newsockfd,turnMsg,strlen(t.c_str())); //message to client
+  // if (n < 0)
+  // {
+  //   error("ERROR writing to socket");
+  // }
 
   //string namePlayer;
   char rcvdName[50];
@@ -105,9 +109,6 @@ int main(int argc, char *argv[])
     error("ERROR on binding");
   }
 
-  guessThisRandom = generateRandomNum();
-  revealRand = convertRandom(guessThisRandom);
-
   //allow process to listen on socket for connections
 	//param sockfd: socket file descriptor
 	//param 5: size of backlog queue for num of connections waiting
@@ -125,12 +126,9 @@ int main(int argc, char *argv[])
     error("ERROR on accept");
   }
 
-  //send welcome to game message to client
-  n = write(newsockfd,welcome,strlen(w.c_str())); //message to client
-  if (n < 0)
-  {
-    error("ERROR writing to socket");
-  }
+  /*****************************************************************/
+  /*FOLLOWING PROGRAM WILL RUN ONCE ABOVE SERVER CONNECTION SUCCESS*/
+  /*****************************************************************/
 
   //receive name from client
   bytesLeft = 50;
@@ -152,12 +150,10 @@ int main(int argc, char *argv[])
   p->timeStamp = time(0);
   printf("DEBUG the name is set, so dance: %s\n",p->playerName.c_str());
 
-  //send game turn message to client
-  n = write(newsockfd,turnMsg,strlen(t.c_str())); //message to client
-  if (n < 0)
-  {
-    error("ERROR writing to socket");
-  }
+  guessThisRandom = generateRandomNum();
+  // revealRand = convertRandom(guessThisRandom);
+  // secretRand = to_string(guessThisRandom);
+  printf("The random secret number = %d\n",guessThisRandom);
 
   //receive guessNum from client
   bytesLeft = sizeof(long);
@@ -174,6 +170,7 @@ int main(int argc, char *argv[])
     bp = bp + bytesRecvd;
   }
   long hostInt = ntohl(networkInt);
+  printf("%s guessed %d",p->playerName.c_str(), (int)hostInt);
   cout << hostInt << endl;
   // bytesLeft = 50;
   // rcvdNamePtr = rcvdName;
@@ -203,7 +200,7 @@ int main(int argc, char *argv[])
   }
 
   //read mesage from client
-  printf("Here is the message: %s",buffer); //message from client
+  printf("Here is the message: %s\n",buffer); //message from client
 
   // printf("this is n: %d", n);
   // printf("client name: %s\n", buffer);
@@ -216,11 +213,11 @@ int main(int argc, char *argv[])
   //write message to client
   //param 2: message to client
   //param 3: size of msg
-  n = write(newsockfd,revealRand,sizeof(revealRand)); //message to client
-  if (n < 0)
-  {
-    error("ERROR writing to socket");
-  }
+  // n = write(newsockfd,revealRand,sizeof(revealRand)); //message to client
+  // if (n < 0)
+  // {
+  //   error("ERROR writing to socket");
+  // }
 
   close(newsockfd);
   close(sockfd);

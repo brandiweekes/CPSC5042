@@ -11,12 +11,20 @@ The port number is passed as an argument */
 #include <iostream>
 #include <string>
 #include <ctime>
+#include <cmath>
 using namespace std;
+
+int closeness(int guess, int random);
+int thousandth(int guess, int random);
+int hundredth(int guess, int random);
+int tens(int guess, int random);
+int ones(int guess, int random);
+
 
 struct player
 {
   string playerName;
-  int guessCount = 0;
+  int guessCount = 1;
   time_t timeStamp;
 };
 
@@ -58,6 +66,7 @@ int main(int argc, char *argv[])
   // const void* revealRand;
   // string secretRand;
   int guessThisRandom;
+  int closenessValue;
 
   // string t = "Turn: 2 \nEnter a guess:    ";
   // const void* turnMsg = convertStringtoCstrVoidPtr(t);
@@ -68,10 +77,17 @@ int main(int argc, char *argv[])
   //   error("ERROR writing to socket");
   // }
 
-  //string namePlayer;
+  //vars for send(),recv()
+  int bytesLeft, bytesRecvd;
+
+  //vars to receive user name from client
   char rcvdName[50];
   char* rcvdNamePtr;
-  int bytesLeft, bytesRecvd;
+
+  //vars to receive user guess from client
+  long rcvdGuess;
+  char *rcvdGuessPtr;
+  long playerGuess;
 
   player* p = new player();
 
@@ -157,39 +173,26 @@ int main(int argc, char *argv[])
 
   //receive guessNum from client
   bytesLeft = sizeof(long);
-  long networkInt;
-  char *bp = (char *) &networkInt;
+  rcvdGuessPtr = (char *) &rcvdGuess;
   while (bytesLeft)
   {
-    bytesRecvd = recv(newsockfd,bp,bytesLeft,0);
+    bytesRecvd = recv(newsockfd,rcvdGuessPtr,bytesLeft,0);
     if (bytesRecvd <= 0)
     {
       exit(-1);
     }
     bytesLeft -= bytesRecvd;
-    bp = bp + bytesRecvd;
+    rcvdGuessPtr = rcvdGuessPtr + bytesRecvd;
   }
-  long hostInt = ntohl(networkInt);
-  printf("%s guessed %d",p->playerName.c_str(), (int)hostInt);
-  cout << hostInt << endl;
-  // bytesLeft = 50;
-  // rcvdNamePtr = rcvdName;
-  // while(bytesLeft)
-  // {
-  //   bytesRecvd = recv(newsockfd, rcvdNamePtr, bytesLeft, 0);
-  //   if(bytesRecvd <= 0)
-  //   {
-  //     exit(-1);
-  //   }
-  //   bytesLeft -= bytesRecvd;
-  //   rcvdNamePtr = rcvdNamePtr + bytesRecvd;
-  // }
-  printf("DEBUG int from client %d\n", (int)hostInt);
-  //set struct player playerName & timeStamp
-  // string namePlayer(rcvdName);
-  // p->playerName = namePlayer;
-  // p->timeStamp = time(0);
-  // printf("DEBUG the name is set, so dance: %s\n",p->playerName.c_str());
+  playerGuess = ntohl(rcvdGuess);
+  printf("DEBUG %s guessed %d\n",p->playerName.c_str(), (int)playerGuess);
+  cout << playerGuess << endl;
+
+  if((int)playerGuess != guessThisRandom)
+  {
+    closenessValue = closeness((int)playerGuess, guessThisRandom);
+    printf("DEBUG %s closeness = %d\n",p->playerName.c_str(), closenessValue);
+  }
 
   /*EXPERIMENTAL CODE BELOW, PLUS END OF PROGRAM*/
   bzero(buffer,256);
@@ -223,4 +226,43 @@ int main(int argc, char *argv[])
   close(sockfd);
 
   return 0;
+}
+
+int closeness(int guess, int random)
+{
+  int th = thousandth(guess, random);
+  int h = hundredth(guess, random);
+  int t = tens(guess, random);
+  int o = ones(guess, random);
+
+  return th + h + t + o;
+}
+
+int thousandth(int guess, int random)
+{
+  int guessThou = (guess % 10000) / 1000;
+  int randomThou = (random % 10000) / 1000;
+
+  return abs(guessThou-randomThou);
+}
+int hundredth(int guess, int random)
+{
+  int guessHund = (guess % 1000) / 100;
+  int randomHund = (random % 1000) / 100;
+
+  return abs(guessHund-randomHund);
+}
+int tens(int guess, int random)
+{
+  int guessTens = (guess % 100) / 10;
+  int randomTens = (random % 100) / 10;
+
+  return abs(guessTens-randomTens);
+}
+int ones(int guess, int random)
+{
+  int guessOnes = (guess % 10);
+  int randomOnes = (random % 10);
+
+  return abs(guessOnes-randomOnes);
 }

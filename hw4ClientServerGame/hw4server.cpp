@@ -12,6 +12,8 @@ The port number is passed as an argument */
 #include <string>
 #include <ctime>
 #include <cmath>
+#include <pthread.h>
+#include <vector>
 using namespace std;
 
 int closeness(int guess, int random);
@@ -24,7 +26,7 @@ int ones(int guess, int random);
 struct player
 {
   string playerName;
-  int guessCount = 1;
+  int guessCount = 0;
   time_t timeStamp;
 };
 
@@ -59,26 +61,22 @@ int main(int argc, char *argv[])
   socklen_t clilen;
   struct sockaddr_in serv_addr, cli_addr;
 
-  int n;
-  char buffer[256];
+   int n;
+  // char buffer[256];
 
   srand(time(NULL));
   // const void* revealRand;
   // string secretRand;
   int guessThisRandom;
   int closenessValue;
+  long sendCloseness;
 
-  // string t = "Turn: 2 \nEnter a guess:    ";
-  // const void* turnMsg = convertStringtoCstrVoidPtr(t);
-  // //send game turn message to client
-  // n = write(newsockfd,turnMsg,strlen(t.c_str())); //message to client
-  // if (n < 0)
-  // {
-  //   error("ERROR writing to socket");
-  // }
+  //write victory message to client
+  string victory;
+
 
   //vars for send(),recv()
-  int bytesLeft, bytesRecvd;
+  int bytesLeft, bytesRecvd, bytesSent;
 
   //vars to receive user name from client
   char rcvdName[50];
@@ -87,7 +85,9 @@ int main(int argc, char *argv[])
   //vars to receive user guess from client
   long rcvdGuess;
   char *rcvdGuessPtr;
-  long playerGuess;
+  long playerGuess = -1;
+
+  //pthread_t* clientTids = new pthread_t[5];
 
   player* p = new player();
 
@@ -171,56 +171,87 @@ int main(int argc, char *argv[])
   // secretRand = to_string(guessThisRandom);
   printf("The random secret number = %d\n",guessThisRandom);
 
-  //receive guessNum from client
-  bytesLeft = sizeof(long);
-  rcvdGuessPtr = (char *) &rcvdGuess;
-  while (bytesLeft)
+  while((int)playerGuess != guessThisRandom)
   {
-    bytesRecvd = recv(newsockfd,rcvdGuessPtr,bytesLeft,0);
-    if (bytesRecvd <= 0)
+    //receive guessNum from client
+    bytesLeft = sizeof(long);
+    rcvdGuessPtr = (char *) &rcvdGuess;
+    while (bytesLeft)
     {
-      exit(-1);
+      bytesRecvd = recv(newsockfd,rcvdGuessPtr,bytesLeft,0);
+      if (bytesRecvd <= 0)
+      {
+        exit(-1);
+      }
+      bytesLeft -= bytesRecvd;
+      rcvdGuessPtr = rcvdGuessPtr + bytesRecvd;
     }
-    bytesLeft -= bytesRecvd;
-    rcvdGuessPtr = rcvdGuessPtr + bytesRecvd;
-  }
-  playerGuess = ntohl(rcvdGuess);
-  printf("DEBUG %s guessed %d\n",p->playerName.c_str(), (int)playerGuess);
-  cout << playerGuess << endl;
+    playerGuess = ntohl(rcvdGuess);
+    p->guessCount += 1;
+    printf("DEBUG %s guessed %d\n",p->playerName.c_str(), (int)playerGuess);
+    printf("guessCount = %d\n", p->guessCount);
 
-  if((int)playerGuess != guessThisRandom)
-  {
+    //calculate the closeness value and send result to client
     closenessValue = closeness((int)playerGuess, guessThisRandom);
     printf("DEBUG %s closeness = %d\n",p->playerName.c_str(), closenessValue);
+
+    //send closeness value to client
+    sendCloseness = htonl(long(closenessValue));
+    bytesSent = send(newsockfd, (void *) &sendCloseness, sizeof(long), 0);
+    if (bytesSent != sizeof(long))
+    {
+     exit(-1);
+    }
   }
 
-  /*EXPERIMENTAL CODE BELOW, PLUS END OF PROGRAM*/
-  bzero(buffer,256);
-  n = read(newsockfd,buffer,255);
-  if (n < 0)
+
+
+  //send closeness value '0' to client
+  sendCloseness = htonl(long(0));
+  bytesSent = send(newsockfd, (void *) &sendCloseness, sizeof(long), 0);
+  if (bytesSent != sizeof(long))
   {
-    error("ERROR reading from socket");
+   exit(-1);
   }
 
-  //read mesage from client
-  printf("Here is the message: %s\n",buffer); //message from client
 
-  // printf("this is n: %d", n);
-  // printf("client name: %s\n", buffer);
-  // string foo(buffer);
-  // p->playerName = foo;
-  //
-  // printf("print foo: %s\n",foo.c_str());
-  // printf("the name is set, so dance: %s\n",p->playerName.c_str());
-
-  //write message to client
-  //param 2: message to client
-  //param 3: size of msg
-  // n = write(newsockfd,revealRand,sizeof(revealRand)); //message to client
+  // //send victory message to client
+  // n = write(newsockfd,sendVictory,strlen(victory.c_str()));
   // if (n < 0)
   // {
   //   error("ERROR writing to socket");
   // }
+
+  victory = "Congratulations! It took " +
+                    to_string(p->guessCount) +
+                    " turns to guess the number!\n";
+            printf("%s\n", victory.c_str());
+  const char* v = victory.c_str();
+  n = write(newsockfd,v,(int)strlen(victory.c_str()));
+               if (n < 0) error("ERROR writing to socket");
+
+  int victoryLength = strlen(victory.c_str());
+  char sendVictory[55];
+  cout << "victoryLenght " << victoryLength << endl;
+  strcpy(sendVictory, victory.c_str());
+  bytesSent = send(newsockfd, (void *)sendVictory, 55, 0);
+  if (bytesSent != 55)
+  {
+    error("ERROR sending victory to socket");
+  }
+
+  /*EXPERIMENTAL CODE BELOW, PLUS END OF PROGRAM*/
+  // bzero(buffer,256);
+  // n = read(newsockfd,buffer,255);
+  // if (n < 0)
+  // {
+  //   error("ERROR reading from socket");
+  // }
+
+  //read mesage from client
+  //printf("Here is the message: %s\n",buffer); //message from client
+
+
 
   close(newsockfd);
   close(sockfd);

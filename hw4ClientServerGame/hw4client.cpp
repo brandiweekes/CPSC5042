@@ -27,10 +27,21 @@ int main(int argc, char *argv[])
 
   char buffer[256];
 
-  int turnNum = 1;
+  //vars for send(),recv()
+  int bytesLeft, bytesRecvd, bytesSent;
+
+  int turnNum = 0;
   long guessNum;
   long clientGuess;
-  int bytesSent;
+
+  //vars to receive closeness from server
+  long rcvdCloseness;
+  char*  rcvdClosenessPtr;
+  long closenessValue = -1;
+
+  //vars to receive user name from client
+  char rcvdVictory[56];
+  char* rcvdVictoryPtr;
 
   string enterName;
   char sendName[50];
@@ -94,23 +105,72 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  //user enters a guess between 0 & 9999, inclusive
-  printf("Turn: %d\n", turnNum);
-  printf("Enter a guess: ");
-  cin >> guessNum;
-  while(guessNum < 0 || guessNum > 9999)
+  while(closenessValue != 0)
   {
-    printf("Guess must be between 0 and 9999, inclusive\n");
+    turnNum++;
+    //user enters a guess between 0 & 9999, inclusive
+    printf("Turn: %d\n", turnNum);
     printf("Enter a guess: ");
     cin >> guessNum;
+    while(guessNum < 0 || guessNum > 9999)
+    {
+      printf("Guess must be between 0 and 9999, inclusive\n");
+      printf("Enter a guess: ");
+      cin >> guessNum;
+    }
+    //send number to server
+    clientGuess = htonl(guessNum);
+    bytesSent = send(sockfd, (void *) &clientGuess, sizeof(long), 0);
+    if (bytesSent != sizeof(long))
+    {
+     exit(-1);
+    }
+    printf("Result of guess: ");
+
+    //receive closenessValue from server
+    bytesLeft = sizeof(long);
+    rcvdClosenessPtr = (char *) &rcvdCloseness;
+    while (bytesLeft)
+    {
+      bytesRecvd = recv(sockfd,rcvdClosenessPtr,bytesLeft,0);
+      if (bytesRecvd <= 0)
+      {
+        printf("bytesRecvd <= 0\n");
+        exit(-1);
+      }
+      bytesLeft -= bytesRecvd;
+      rcvdClosenessPtr = rcvdClosenessPtr + bytesRecvd;
+    }
+    closenessValue = ntohl(rcvdCloseness);
+    printf("%d\n",(int)closenessValue);
+    //cout << closenessValue << endl;
+    printf("\n");
+
   }
-  //send number to server
-  clientGuess = htonl(guessNum);
-  bytesSent = send(sockfd, (void *) &clientGuess, sizeof(long), 0);
-  if (bytesSent != sizeof(long))
+  //cout << "exited game loop" << endl;
+
+  //receive victory message from server
+
+  bzero(buffer,256);
+  n = read(sockfd,buffer,255);
+  if (n < 0)
+       error("ERROR reading from socket");
+  printf("buffer %s\n",buffer);
+
+  bzero(rcvdVictory,55);
+  bytesLeft = 55;
+  rcvdVictoryPtr = rcvdVictory;
+  while(bytesLeft)
   {
-   exit(-1);
+    bytesRecvd = recv(sockfd, rcvdVictoryPtr, bytesLeft, 0);
+    if(bytesRecvd <= 0)
+    {
+      error("ERROR receiving victory message from socket");
+    }
+    bytesLeft -= bytesRecvd;
+    rcvdVictoryPtr = rcvdVictoryPtr + bytesRecvd;
   }
+  printf("recv %s\n", rcvdVictory);
 
   //read from socket
   bzero(buffer,256);
@@ -118,51 +178,8 @@ int main(int argc, char *argv[])
   if (n < 0)
        error("ERROR reading from socket");
   //read message from socket
-  printf("%s\n",buffer);
+  printf("last %s\n",buffer);
 
-
-  //read from socket
-  bzero(buffer,256);
-  n = read(sockfd,buffer,255);
-  if (n < 0)
-       error("ERROR reading from socket");
-  //read message from socket
-  printf("%s\n",buffer);
-
-
-
-  /*EXPERIMENTAL CODE BELOW, PLUS END OF PROGRAM*/
-  //enter name
-  bzero(buffer,256);
-  fgets(buffer,255,stdin);
-  //write message to socket
-  n = write(sockfd,buffer,strlen(buffer));
-  if (n < 0)
-   {
-     error("ERROR writing to socket");
-   }
-
-   //send number to server
-  // cin >> guessNum;
-  // clientGuess = htonl(guessNum);
-  // bytesSent = send(sockfd, (void *) &clientGuess, sizeof(long), 0);
-  // if (bytesSent != sizeof(long))
-  // {
-  //   exit(-1);
-  // }
-
-
-
-  bzero(buffer,256);
-  fgets(buffer,255,stdin);
-  n = write(sockfd,buffer,strlen(buffer));
-  if (n < 0)
-       error("ERROR writing to socket");
-  bzero(buffer,256);
-  n = read(sockfd,buffer,255);
-  if (n < 0)
-       error("ERROR reading from socket");
-  printf("%s\n",buffer);
   close(sockfd);
   return 0;
 }

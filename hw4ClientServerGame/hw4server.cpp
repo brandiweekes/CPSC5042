@@ -9,6 +9,8 @@ The port number is passed as an argument */
 #include <netinet/in.h>
 #include <time.h>
 #include <stdint.h>
+#include <vector>
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <ctime>
@@ -24,12 +26,31 @@ int tens(int guess, int random);
 int ones(int guess, int random);
 
 
+
 struct player
 {
   string playerName;
   int guessCount = 0;
   time_t timeStamp;
 };
+
+vector<const player*> leaderBoard;
+const int LEADERBOARD_MAX = 3;
+string sendLeaders = "";
+
+//sort vector by FILO --> vectorP[0] = last, vectorP[n-1] = first
+//ordering guessCount vs timeStamp
+bool compareLeaders(const player* a, const player* b)
+{
+	if(a->guessCount == b->guessCount && a->timeStamp != b->timeStamp)
+	{
+		return (a->timeStamp < b->timeStamp);
+	}
+	else
+	{
+		return (a->guessCount < b->guessCount);
+	}
+}
 
 int generateRandomNum()
 {
@@ -173,28 +194,58 @@ void *guessingGame(void* sock_desc)
 
     int victoryLength = strlen(victory.c_str());
     char sendVictory[55];
-    cout << "victoryLenght " << victoryLength << endl;
     strcpy(sendVictory, victory.c_str());
-    bytesSent = send(newsockfd, (void *)sendVictory, 55, 0);
-    if (bytesSent != 55)
+    bytesSent = send(newsockfd, (void *)sendVictory, victoryLength, 0);
+    if (bytesSent != victoryLength)
     {
       error("ERROR sending victory to socket");
     }
+    printf("bytesSent = %d\n", bytesSent);
+    printf("pushing to leaderBoard\n");
+    leaderBoard.push_back(p);
+    sort(leaderBoard.begin(), leaderBoard.end(), compareLeaders);
+    printf("size()%d", (int)leaderBoard.size());
 
-    /*EXPERIMENTAL CODE BELOW, PLUS END OF PROGRAM*/
-    // bzero(buffer,256);
-    // n = read(newsockfd,buffer,255);
-    // if (n < 0)
-    // {
-    //   error("ERROR reading from socket");
-    // }
+    while((int)leaderBoard.size() > LEADERBOARD_MAX )
+    {
+      printf("pre pop size()%d", (int)leaderBoard.size());
 
-    //read mesage from client
-    //printf("Here is the message: %s\n",buffer); //message from client
+      leaderBoard.pop_back();
+      printf("post pop size()%d", (int)leaderBoard.size());
+
+    }
+
+    printf("test %s   %d\n",
+    leaderBoard[0]->playerName.c_str(), leaderBoard[0]->guessCount);
+
+    printf("print this\n");
+    printf("size()%d\n", (int)leaderBoard.size());
+    printf("print after asking size again\n");
+    printf("printing leaderBoard\n");
+    printf("before loop size()%d\n", (int)leaderBoard.size());
+
+    for(vector<const player*>::size_type i = 0; i < leaderBoard.size(); ++i)
+    {
+      printf("%s   %d\n",
+      leaderBoard[i]->playerName.c_str(), leaderBoard[i]->guessCount);
+      sendLeaders += leaderBoard[i]->playerName + " " + to_string(leaderBoard[i]->guessCount) + "\n";
+    }
+
+    bytesSent = send(newsockfd, (void *) sendLeaders.c_str(), sendLeaders.length(), 0);
+    if (bytesSent != (int)sendLeaders.length())
+    {
+      exit(-1);
+    }
+
+    printf("sendLeaders %s\n",sendLeaders.c_str());
+
+    printf("after loop size()%d\n", (int)leaderBoard.size());
 
 
-
+    sendLeaders = "";
     close(newsockfd);
+    pthread_exit(NULL);
+
     return 0;
   }
 
@@ -203,9 +254,6 @@ int main(int argc, char *argv[])
   int sockfd, newsockfd, portno;
   socklen_t clilen;
   struct sockaddr_in serv_addr, cli_addr;
-
-
-
 
   //check if user entered port number
   if (argc < 2)
@@ -249,8 +297,6 @@ int main(int argc, char *argv[])
 
   while (true)
   {
-
-
     clilen = sizeof(cli_addr);
 
     //causes process to block until a client connects to server
@@ -265,8 +311,9 @@ int main(int argc, char *argv[])
     /*****************************************************************/
     /*FOLLOWING PROGRAM WILL RUN ONCE ABOVE SERVER CONNECTION SUCCESS*/
     /*****************************************************************/
-    pthread_t playerThread;
 
+    //create new thread for each client success on accept
+    pthread_t playerThread;
     //unsigned int newsockfdUnsigned = (uintptr_t) newsockfd;
 
     if (pthread_create(&playerThread, NULL, guessingGame, (void*) (intptr_t)newsockfd) < 0)
@@ -278,7 +325,6 @@ int main(int argc, char *argv[])
 
   }
   close(sockfd);
-  pthread_exit(NULL);
 
   return 0;
 }

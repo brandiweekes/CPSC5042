@@ -151,11 +151,11 @@ int main(int argc, char *argv[])
 
   //receive victory message from server
 
-  bzero(buffer,256);
-  n = read(sockfd,buffer,255);
-  if (n < 0)
-       error("ERROR reading from socket");
-  printf("buffer %s\n",buffer);
+  // bzero(buffer,256);
+  // n = read(sockfd,buffer,255);
+  // if (n < 0)
+  //      error("ERROR reading from socket");
+  // printf("buffer %s\n",buffer);
 
   bzero(rcvdVictory,55);
   bytesLeft = 55;
@@ -163,9 +163,10 @@ int main(int argc, char *argv[])
   while(bytesLeft)
   {
     bytesRecvd = recv(sockfd, rcvdVictoryPtr, bytesLeft, 0);
+    printf("bytes = %d\n",bytesRecvd);
     if(bytesRecvd <= 0)
     {
-      error("ERROR receiving victory message from socket");
+      error("ERROR receiving victory message from socket\n");
     }
     bytesLeft -= bytesRecvd;
     rcvdVictoryPtr = rcvdVictoryPtr + bytesRecvd;
